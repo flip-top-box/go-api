@@ -3,26 +3,18 @@ package main
 import (
 	"GOAPI/cmd/api"
 	"GOAPI/config"
-	"GOAPI/db"
-	"database/sql"
-	"github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"log"
 )
 
 func main() {
 	cfg := config.Envs
 	host := cfg.Address
-	dataBase, err := db.NewMySQLStorage(mysql.Config{
-		User:   cfg.DBUser,
-		Passwd: cfg.DBPassword,
-		Net:    "tcp",
-		Addr:   cfg.DBAddress,
-		DBName: cfg.DBName,
-	})
+	dataBase, err := gorm.Open(mysql.Open(cfg.DBDSN), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to initialize database: ", err)
 	}
-
 	initStorage(dataBase)
 
 	server := api.NewServer(host, dataBase)
@@ -31,8 +23,14 @@ func main() {
 	}
 }
 
-func initStorage(dataBase *sql.DB) {
-	err := dataBase.Ping()
+func initStorage(db *gorm.DB) {
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal("Failed to get underlying database from GORM: ", err)
+	}
+
+	err = sqlDB.Ping()
 	if err != nil {
 		log.Fatal("Error connecting to DataBase: ", err)
 	}
